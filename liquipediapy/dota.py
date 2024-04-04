@@ -219,49 +219,55 @@ class dota():
 		else:
 			page_val = tournamentType.capitalize()+'_Tournaments'				
 		soup,__ = self.liquipedia.parse(page_val)
-		div_rows = soup.find_all('div',class_="divRow")
+		div_rows = soup.find_all('div',class_='gridRow')
 		for row in div_rows:
 			tournament = {}
 
-			values = row.find('div',class_="divCell Tournament Header")
 			if tournamentType is None:
-				tournament['tier'] = values.a.get_text()
-				tournament['name'] = values.b.get_text()
+				tournament['tier'] = row.find('div',class_='gridCell Tier Header').get_text()
+				tournament['name'] = row.find('div', class_='gridCell Tournament Header').get_text()
 			else:
 				tournament['tier'] = tournamentType
 
 			try:
-				tournament['icon'] = self.__image_base_url+row.find('div',class_="divCell Tournament Header").find('img').get('src')
+				tournament['icon'] = self.__image_base_url+row.find('div',class_='gridCell Tournament Header').find('img').get('src')
 			except AttributeError:
 				pass
 
 			try:
-				tournament['page'] = self.__image_base_url + values.b.a['href']
+				tournament['page'] = self.__image_base_url + row.find('div',class_='gridCell Tournament Header').a['href']
 			except AttributeError:
 				pass
 
-			tournament['dates'] = row.find('div',class_="divCell EventDetails Date Header").get_text().strip()
+			tournament['dates'] = row.find('div',class_="gridCell EventDetails Date Header").get_text().strip()
 
 			try:
-				tournament['prize_pool'] = int(row.find('div',class_="divCell EventDetails Prize Header").get_text().rstrip().replace('$','').replace(',',''))
+				# Prize Header Blank - нужно обработать, если приз не установлен
+				tournament['prize_pool'] = int(row.find('div',class_="gridCell EventDetails Prize Header").get_text().rstrip().replace('$','').replace(',',''))
 			except (AttributeError,ValueError):
 				tournament['prize_pool'] = 0
 
-			tournament['teams'] = re.sub('[A-Za-z]','',row.find('div',class_="divCell EventDetails PlayerNumber Header").get_text()).rstrip()	
-			location_list= unicodedata.normalize("NFKD",row.find('div',class_="divCell EventDetails Location Header").get_text().strip()).split(',')
+			tournament['teams'] = re.sub('[A-Za-z]','',row.find('div',class_="gridCell EventDetails PlayerNumber Header").get_text()).rstrip()	
+			location_list= unicodedata.normalize("NFKD",row.find('div',class_="gridCell EventDetails Location Header").get_text().strip()).split(',')
 			tournament['host_location'] = location_list[0]
-
-			winner = row.find('div',class_="divCell Placement FirstPlace")
-			if winner:
-				tournament['winner'] = winner.get_text().strip()
-				tournament['runner_up'] = row.find('div',class_="divCell Placement SecondPlace").get_text().strip()
-			else:
-				tournament['winner'] = "TBD"
-				tournament['runner_up'] = "TBD"
+			
+			# TODO
+			# Get team blocks. If block-team > 1 in winner column we added two row in database.
+			#blocks = row.find('div',class_="gridCell Placement FirstPlace").find_all('div', class_="block-team")
+			#if tournament['tier'][0:4] == 'Qual' and len([block.get_text().strip() for block in blocks]) > 1:
+			#	tournament['winner'] = blocks[0].get_text().strip()
+			#	# first row
+			#	tournaments.append(tournament)
+			#	tournament['winner'] = blocks[1].get_text().strip()
+			#else:
+			#	tournament['winner'] = row.find('div',class_="gridCell Placement FirstPlace").get_text().strip()
+			#	tournament['runner_up'] = row.find('div',class_="gridCell Placement SecondPlace").get_text().strip()
+			tournament['winner'] = row.select('div.gridCell.Placement.FirstPlace > span.Participants > div.block-team > span.name > a')
 
 			tournaments.append(tournament)
 
 		return tournaments
+
 
 	def get_tournament_baner(self, tournament_page):
 		try:
